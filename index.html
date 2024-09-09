@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Рисование</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let isDrawing = false;
+        let points = [];
+        let lineGeometry, lineMaterial, lineMeshRed, lineMeshYellow;
+        let startPointRed, endPointBlue;
+        let startPointYellow, endPointGreen;
+        let pointsRed, pointsYellow
+        let speedRed, speedYellow
+        let drawingCompletedRed = false;
+        let drawingCompletedYellow = false;
+
+        init();
+        animate();
+
+        function init() {
+            // Создание сцены
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Установка позиции камеры
+            camera.position.z = 5;
+
+            // Создание красной начальной точки
+            const startGeometryRed = new THREE.SphereGeometry(0.05, 32, 32);
+            const startMaterialRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            startPointRed = new THREE.Mesh(startGeometryRed, startMaterialRed);
+            startPointRed.position.set(-2, -3, 0);
+            scene.add(startPointRed);
+
+            // Создание синей конечной точки
+            const endGeometryBlue = new THREE.SphereGeometry(0.05, 32, 32);
+            const endMaterialBlue = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+            endPointBlue = new THREE.Mesh(endGeometryBlue, endMaterialBlue);
+            endPointBlue.position.set(2, 3, 0);
+            scene.add(endPointBlue);
+
+            // Создание желтой начальной точки
+            const startGeometryYellow = new THREE.SphereGeometry(0.05, 32, 32);
+            const startMaterialYellow = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            startPointYellow = new THREE.Mesh(startGeometryYellow, startMaterialYellow);
+            startPointYellow.position.set(2, -3, 0);
+            scene.add(startPointYellow);
+
+            // Создание зеленой конечной точки
+            const endGeometryGreen = new THREE.SphereGeometry(0.05, 32, 32);
+            const endMaterialGreen = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            endPointGreen = new THREE.Mesh(endGeometryGreen, endMaterialGreen);
+            endPointGreen.position.set(-2, 3, 0);
+            scene.add(endPointGreen);
+
+            // Обработчики событий
+            window.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('mousemove', draw);
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onMouseDown(event) {
+            if (!drawingCompletedRed && isMouseOnStartPoint(event, startPointRed)) {
+                isDrawing = true;
+                points = []; // Сбрасываем массив точек
+                points.push(startPointRed.position.clone()); // Начинаем рисовать с красной точки
+                lineGeometry = new THREE.BufferGeometry();
+                lineGeometry.name = 'Red';
+                lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+                lineMeshRed = new THREE.Line(lineGeometry, lineMaterial);
+                scene.add(lineMeshRed);
+            }
+
+            if (!drawingCompletedYellow && isMouseOnStartPoint(event, startPointYellow)) {
+                isDrawing = true;
+                points = []; // Сбрасываем массив точек
+                points.push(startPointYellow.position.clone()); // Начинаем рисовать с желтой точки                
+                lineGeometry = new THREE.BufferGeometry();
+                lineGeometry.name = 'Yellow';
+                lineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
+                lineMeshYellow = new THREE.Line(lineGeometry, lineMaterial);
+                scene.add(lineMeshYellow);
+            }
+        }
+
+        function draw(event) {
+            if (isDrawing) {
+            // Добавляем новые точки
+            addPoint(event);
+            if(lineGeometry.name == "Red"){
+                pointsRed = points;
+            }
+            
+            if(lineGeometry.name == "Yellow"){
+                pointsYellow = points;
+            }
+            lineGeometry.setFromPoints(points);
+            };
+
+        }
+
+        function addPoint(event) {
+            // Перевод координат окна в координаты трехмерного мира
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const vector = new THREE.Vector3(x, y, 0.5);
+            vector.unproject(camera);
+            vector.sub(camera.position).normalize();
+
+            const distance = -camera.position.z / vector.z;
+            const pos = camera.position.clone().add(vector.multiplyScalar(distance));
+
+            points.push(pos);
+            // console.log(points);
+            
+        }
+
+        function onMouseUp(event) {
+            
+            if (isMouseOnEndPoint(event, endPointBlue) && isDrawing) {
+                isDrawing = false;
+                drawingCompletedRed = true;  
+            } else {
+                if (!drawingCompletedRed) {                 
+                    scene.remove(lineMeshRed); // Удаляем линию, если она была создана
+                }
+            }
+
+            if (isMouseOnEndPoint(event, endPointGreen) && isDrawing) {
+                isDrawing = false;
+                drawingCompletedYellow = true; 
+            } else {
+                if (!drawingCompletedYellow) {
+                    scene.remove(lineMeshYellow); // Удаляем линию, если она была создана
+                }
+            }
+        }
+
+        function isMouseOnStartPoint(event, startPoint) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const pointScreenPosition = startPoint.position.clone().project(camera);
+            return Math.abs(mouseX - pointScreenPosition.x) < 0.1 && Math.abs(mouseY - pointScreenPosition.y) < 0.1;
+        }
+
+        function isMouseOnEndPoint(event, endPoint) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const pointScreenPosition = endPoint.position.clone().project(camera);
+            return Math.abs(mouseX - pointScreenPosition.x) < 0.1 && Math.abs(mouseY - pointScreenPosition.y) < 0.1;
+        }
+        let r = 0;
+        let y = 0; // параметр времени для анимации
+        const speed = 1; // скорость движения по кривой
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+//             if(drawingCompletedRed){
+                
+//             if(points[t] != undefined){
+//                 startPointRed.position.set(points[t].x, points[t].y, points[t].z);
+//                 t += speed;
+// }
+//             }
+//             if(drawingCompletedYellow){
+//             if(points[t] != undefined){
+//                 startPointYellow.position.set(points[t].x, points[t].y, points[t].z);
+//                 t += speed;
+// }
+//             }
+            if(drawingCompletedRed && drawingCompletedYellow){
+                // console.log(pointsYellow);
+                // console.log(pointsRed);\
+                const findFirstIntersectionIndices = (red, yellow) => {
+    const epsilon = 0.05;
+
+    for (let indexRed = 0; indexRed < red.length; indexRed++) {
+        for (let indexYellow = 0; indexYellow < yellow.length; indexYellow++) {
+            if (Math.abs(red[indexRed].x - yellow[indexYellow].x) < epsilon &&
+                Math.abs(red[indexRed].y - yellow[indexYellow].y) < epsilon) {
+                return { indexRed, indexYellow }; // Возвращаем первую найденную пару индексов
+            }
+        }
+    }
+
+    return null; // Если совпадений нет, возвращаем null
+};
+
+// Находим первую пару индексов пересечений
+const intersectionIndices = findFirstIntersectionIndices(pointsRed, pointsYellow);
+
+// console.log(intersectionIndices);
+
+if(speedRed == undefined){
+if(intersectionIndices.indexRed >= intersectionIndices.indexYellow){
+    speedRed = Math.round(intersectionIndices.indexRed/intersectionIndices.indexYellow)
+    speedYellow = 1
+    
+} else {
+    speedYellow = Math.round(intersectionIndices.indexYellow/intersectionIndices.indexRed)
+    speedRed = 1
+}
+}
+if(r < intersectionIndices.indexRed){
+    startPointRed.position.set(pointsRed[r].x, pointsRed[r].y);
+    r+=speedRed
+}
+if(y < intersectionIndices.indexYellow){
+    startPointYellow.position.set(pointsYellow[y].x, pointsYellow[y].y);
+    y+=speedYellow
+}
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
